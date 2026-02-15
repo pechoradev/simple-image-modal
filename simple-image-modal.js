@@ -3,7 +3,7 @@
  * @module SimpleImageModal
  * @author Pechora-Dev
  * @site-author https://pechora-dev.ru
- * @version 1.1.0
+ * @version 1.2.0
  * @license MIT
  */
 
@@ -19,6 +19,7 @@ class SimpleImageModal {
      * @param {Object} options - Опции конфигурации
      * @param {string} [options.selector='img'] - CSS селектор для изображений
      * @param {string|null} [options.excludeSelector=null] - CSS селектор для исключения изображений
+     * @param {boolean} [options.skipLinkedImages=true] - Пропускать изображения внутри ссылок
      * @param {string} [options.modalClass='simple-image-modal'] - Класс для модального окна
      * @param {string} [options.modalContentClass='simple-image-modal-content'] - Класс для контента
      * @param {string} [options.closeButtonClass='simple-image-modal-close'] - Класс для кнопки закрытия
@@ -32,8 +33,8 @@ class SimpleImageModal {
      * @example
      * const modal = new SimpleImageModal({
      *     selector: '.gallery-img',
-     *     enableZoom: true,
-     *     maxZoom: 4
+     *     skipLinkedImages: true,
+     *     enableZoom: true
      * });
      */
     constructor(options = {}) {
@@ -45,6 +46,7 @@ class SimpleImageModal {
         this.options = {
             selector: 'img',
             excludeSelector: null,
+            skipLinkedImages: true,
             modalClass: 'simple-image-modal',
             modalContentClass: 'simple-image-modal-content',
             closeButtonClass: 'simple-image-modal-close',
@@ -140,7 +142,7 @@ class SimpleImageModal {
             box-sizing: border-box;
         `;
 
-        // Создает контейнер для изображения с правильными ограничениями
+        // Создаем контейнер для изображения с правильными ограничениями
         const imageContainer = document.createElement('div');
         imageContainer.style.cssText = `
             display: flex;
@@ -232,6 +234,26 @@ class SimpleImageModal {
     }
 
     /**
+     * Проверяет, находится ли изображение внутри ссылки
+     * @private
+     * @param {HTMLImageElement} img - Элемент изображения для проверки
+     * @returns {boolean} true если изображение находится внутри ссылки
+     */
+    isInsideLink(img) {
+        if (!this.options.skipLinkedImages) return false;
+        
+        // Проверяем, является ли родительский элемент ссылкой
+        const parent = img.parentElement;
+        if (parent && parent.tagName === 'A') {
+            return true;
+        }
+        
+        // Проверяем, обернуто ли изображение в ссылку (некоторые CMS оборачивают img в ссылку)
+        const closestLink = img.closest('a');
+        return closestLink !== null;
+    }
+
+    /**
      * Привязывает обработчики событий
      * @private
      * @returns {void}
@@ -239,7 +261,16 @@ class SimpleImageModal {
     bindEvents() {
         document.addEventListener('click', (e) => {
             const img = e.target.closest(this.options.selector);
+            
+            // Если изображение найдено и не исключено
             if (img && !this.isExcluded(img)) {
+                // Проверяем, находится ли изображение внутри ссылки
+                if (this.isInsideLink(img)) {
+                    // Если внутри ссылки - ничего не делаем, пусть отрабатывает стандартное поведение
+                    return;
+                }
+                
+                // Иначе открываем в модальном окне
                 e.preventDefault();
                 this.open(img);
             }

@@ -16,8 +16,13 @@
 
 | Опция | Тип | По умолчанию | Описание |
 |-------|-----|--------------|----------|
-| `selector` | `string` | `'img'` | CSS селектор для изображений |
+| `selector` | `string` | `'img'` | CSS селектор для изображений, которые должны открываться в модальном окне |
 | `excludeSelector` | `string` | `null` | CSS селектор для исключения изображений |
+| `skipLinkedImages` | `boolean` | `true` | Если true, изображения внутри тега <a> не открываются в модальном окне, а работают как обычные ссылки |
+| `modalClass` | `string` | `simple-image-modal` | Класс для модального окна - можно переопределить для своих стилей |
+| `modalContentClass` | `string` | `simple-image-modal-content` | Класс для контейнера с контентом |
+| `closeButtonClass` | `string` | `simple-image-modal-close` | Класс для кнопки закрытия |
+| `captionClass` | `string` | `simple-image-modal-caption` | Класс для подписи под изображением |
 | `closeOnClick` | `boolean` | `true` | Закрытие по клику на фон |
 | `closeOnEsc` | `boolean` | `true` | Закрытие по клавише ESC |
 | `showCaption` | `boolean` | `true` | Показывать подпись (alt или title) |

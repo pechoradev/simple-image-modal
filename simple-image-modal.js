@@ -3,7 +3,7 @@
  * @module SimpleImageModal
  * @author Pechora-Dev
  * @site-author https://pechora-dev.ru
- * @version 1.0.0
+ * @version 1.1.0
  * @license MIT
  */
 
@@ -132,18 +132,38 @@ class SimpleImageModal {
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            width: 90%;
-            height: 90%;
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        `;
+
+        // Создает контейнер для изображения с правильными ограничениями
+        const imageContainer = document.createElement('div');
+        imageContainer.style.cssText = `
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            overflow: hidden;
         `;
 
         this.modalImg = document.createElement('img');
         this.modalImg.style.cssText = `
             max-width: 100%;
-            max-height: calc(100% - 60px);
+            max-height: 100%;
+            width: auto;
+            height: auto;
             object-fit: contain;
             user-select: none;
             transition: transform ${this.options.animationDuration}ms ease;
             cursor: ${this.options.enableZoom ? 'grab' : 'pointer'};
+            transform-origin: center center;
         `;
 
         const closeBtn = document.createElement('span');
@@ -159,6 +179,17 @@ class SimpleImageModal {
             cursor: pointer;
             transition: 0.3s;
             z-index: 10000;
+            line-height: 1;
+            @media (max-width: 768px) {
+                top: 10px;
+                right: 20px;
+                font-size: 35px;
+            }
+            @media (max-width: 480px) {
+                top: 8px;
+                right: 15px;
+                font-size: 30px;
+            }
         `;
         closeBtn.onmouseover = () => closeBtn.style.color = '#bbb';
         closeBtn.onmouseout = () => closeBtn.style.color = '#f1f1f1';
@@ -166,14 +197,25 @@ class SimpleImageModal {
         this.modalCaption = document.createElement('div');
         this.modalCaption.className = this.options.captionClass;
         this.modalCaption.style.cssText = `
-            margin: 15px auto;
+            margin: 10px auto;
             color: #fff;
             text-align: center;
             font-size: 16px;
-            max-width: 80%;
+            max-width: 90%;
+            word-wrap: break-word;
+            padding: 0 10px;
+            @media (max-width: 768px) {
+                font-size: 14px;
+                margin: 8px auto;
+            }
+            @media (max-width: 480px) {
+                font-size: 12px;
+                margin: 5px auto;
+            }
         `;
 
-        modalContent.appendChild(this.modalImg);
+        imageContainer.appendChild(this.modalImg);
+        modalContent.appendChild(imageContainer);
         modalContent.appendChild(closeBtn);
         modalContent.appendChild(this.modalCaption);
         this.modal.appendChild(modalContent);
@@ -184,6 +226,9 @@ class SimpleImageModal {
         
         /** @private @type {HTMLElement} */
         this.modalContent = modalContent;
+        
+        /** @private @type {HTMLElement} */
+        this.imageContainer = imageContainer;
     }
 
     /**
@@ -219,12 +264,53 @@ class SimpleImageModal {
         }
 
         if (this.options.enableZoom) {
+            // Обработка колесика мыши
             this.modalImg.addEventListener('wheel', (e) => {
                 e.preventDefault();
                 const delta = e.deltaY > 0 ? -0.1 : 0.1;
                 this.zoom(delta);
             });
 
+            // Обработка касаний для мобильных устройств (pinch-to-zoom)
+            let initialDistance = 0;
+            let initialScale = 1;
+
+            this.modalImg.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    initialDistance = this.getTouchDistance(e.touches);
+                    initialScale = this.scale;
+                } else if (e.touches.length === 1 && this.scale > 1) {
+                    this.isDragging = true;
+                    this.startX = e.touches[0].clientX - this.translateX;
+                    this.startY = e.touches[0].clientY - this.translateY;
+                    this.modalImg.style.cursor = 'grabbing';
+                }
+            });
+
+            this.modalImg.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    const currentDistance = this.getTouchDistance(e.touches);
+                    const scaleDelta = (currentDistance / initialDistance) * initialScale;
+                    this.scale = Math.min(this.options.maxZoom, Math.max(1, scaleDelta));
+                    this.updateImageTransform();
+                } else if (e.touches.length === 1 && this.isDragging && this.scale > 1) {
+                    e.preventDefault();
+                    this.translateX = e.touches[0].clientX - this.startX;
+                    this.translateY = e.touches[0].clientY - this.startY;
+                    this.updateImageTransform();
+                }
+            });
+
+            this.modalImg.addEventListener('touchend', (e) => {
+                if (e.touches.length === 0) {
+                    this.isDragging = false;
+                    this.modalImg.style.cursor = 'grab';
+                }
+            });
+
+            // Обработка мыши для десктопа
             this.modalImg.addEventListener('mousedown', (e) => {
                 if (this.scale > 1) {
                     this.isDragging = true;
@@ -249,10 +335,34 @@ class SimpleImageModal {
                 }
             });
 
-            this.modalImg.addEventListener('dblclick', () => {
-                this.resetZoom();
+            this.modalImg.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                if (this.scale > 1) {
+                    this.resetZoom();
+                } else {
+                    this.zoom(0.5);
+                }
             });
         }
+
+        // Обработка изменения ориентации экрана
+        window.addEventListener('resize', () => {
+            if (this.isOpen() && this.scale === 1) {
+                this.resetZoom();
+            }
+        });
+    }
+
+    /**
+     * Вычисляет расстояние между двумя касаниями
+     * @private
+     * @param {TouchList} touches - Список касаний
+     * @returns {number} Расстояние между касаниями
+     */
+    getTouchDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
     }
 
     /**

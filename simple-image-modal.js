@@ -278,7 +278,10 @@ class SimpleImageModal {
 
         if (this.options.closeOnClick) {
             this.modal.addEventListener('click', (e) => {
-                if (e.target === this.modal) {
+                if (e.target === this.modal || 
+                    e.target === this.imageContainer || 
+                    e.target === this.modalContent ||
+                    !this.modalImg.contains(e.target) && e.target !== this.closeBtn) {
                     this.close();
                 }
             });
